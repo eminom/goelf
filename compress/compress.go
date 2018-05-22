@@ -3,10 +3,11 @@ package compress
 import (
 	"archive/tar"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"os"
 	"path"
+
+	log "../logs"
 )
 
 func loadfrom(file string, tw *tar.Writer) error {
@@ -27,7 +28,7 @@ func CreateTar(files []string, tr func(string) string, writer io.Writer) error {
 	defer tw.Close()
 
 	for _, file := range files {
-		fmt.Println(file)
+		log.Printf("%v", file)
 
 		info, ei := os.Stat(file)
 		if ei != nil {
@@ -67,7 +68,7 @@ func Detar(input io.Reader, outd string) error {
 			return err
 		}
 		outF := path.Join(outd, header.Name)
-		fmt.Printf("%v\n", outF)
+		log.Printf("%v", outF)
 		baseD := path.Dir(outF)
 		err = os.MkdirAll(baseD, os.ModePerm)
 		if err != nil {

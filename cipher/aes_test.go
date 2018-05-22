@@ -2,6 +2,7 @@ package cipher
 
 import (
 	"bytes"
+	"encoding/hex"
 	"log"
 	"testing"
 )
@@ -33,4 +34,14 @@ func TestAes(t *testing.T) {
 	encTest([]byte(""), "ss", t)
 	encTest([]byte("a"), "", t)
 	encTest([]byte("a"), "aa", t)
+
+	ebuff, err := hex.DecodeString(`bf4ce4e2c76f997665d371c51a02fe4fceae3d0823bfda489592cbad7921e0a3ed69d68371961b89c8a873210ddba403`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbuff, err := AesDecrypt(ebuff, ",l")
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Printf("%v\n", string(dbuff))
 }

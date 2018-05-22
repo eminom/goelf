@@ -1,66 +1,67 @@
 package main
 
 import (
-	"goelf/cipher"
-	"goelf/compress"
-
 	"bytes"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
+
+	"./cipher"
+	"./compress"
+	"./locates"
+	log "./logs"
 )
 
 var (
-	verbose = flag.Bool("v", false, "verbose output")
-	indir   = flag.String("i", "", "input directory")
-	outfile = flag.String("o", "", "output file")
+	fVerbose = flag.Bool("v", false, "verbose output")
 
-	intar  = flag.String("d", "", "tar to decode")
-	outdir = flag.String("c", "", "folder to unfold")
-
-	pkey = flag.String("k", "koko", "key for me")
+	// default key: no key. Just do simple tar.
+	pkey = flag.String("k", "", "key for me")
 )
 
 func init() {
 	flag.Parse()
+
+	log.SetVerbose(*fVerbose)
 }
 
 func main() {
 	//files := collectfiles(`C:\Users\baihai`)
 
-	if len(*indir) != 0 {
-		indirStat, err := os.Stat(*indir)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if indirStat.IsDir() {
-			goEncode()
-		} else {
-			log.Fatal("folder to compress only")
-		}
-		return
+	if len(flag.Args()) < 2 {
+		flag.PrintDefaults()
+		log.Fatal("not enough parameter")
 	}
 
-	if len(*intar) != 0 {
-		intarStat, err := os.Stat(*intar)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if !intarStat.IsDir() {
-			goDecode()
-		} else {
-			log.Fatal("error decode a folder")
-		}
-		return
+	cmd := flag.Args()[0]
+	input := flag.Args()[1]
+	switch cmd {
+	case "c":
+		goEncode(input)
+	case "x":
+		goDecode(input)
+	default:
+		log.Fatalf("unsupported cmd: %v", cmd)
 	}
-
-	flag.PrintDefaults()
 }
 
-func goEncode() {
-	files, tr := collectfiles(*indir)
+func goEncode(startupDir string) {
+
+	stat, err := os.Stat(startupDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if !stat.IsDir() {
+		log.Fatalf("error: not a directory")
+	}
+
 	startTime := time.Now()
+	files, tr := locates.Collectfiles(startupDir)
 	log.Printf("%v file(s) found.", len(files))
 	durTime := time.Now().Sub(startTime)
 	log.Printf("%v elapsed.", durTime)
@@ -68,7 +69,9 @@ func goEncode() {
 	recvBuff := bytes.NewBuffer(nil)
 	compress.CreateTar(files, tr, recvBuff)
 
-	fout, err := os.Create(*outfile)
+	outFile := fmt.Sprintf("%v.%v.tar", filepath.Base(startupDir), time.Now().Format("15-04-05.Jan-2-2006"))
+
+	fout, err := os.Create(outFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,8 +88,30 @@ func goEncode() {
 	fout.Write(encrypted)
 }
 
-func goDecode() {
-	chunk, err := ioutil.ReadFile(*intar)
+func goDecode(targetFile string) {
+	stat, err := os.Stat(targetFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if stat.IsDir() {
+		log.Fatal("this is a folder not a file(to decode)")
+	}
+
+	var outFolder string
+	pos := strings.Index(targetFile, ".")
+	if pos >= 0 {
+		outFolder = targetFile[:pos]
+	} else {
+		outFolder = targetFile
+	}
+	outFolder += time.Now().Format("15-04-05.Jan-2-2006") + ".d"
+
+	stat, err = os.Stat(outFolder)
+	if nil == err {
+		log.Fatalf("error: %v exists", outFolder)
+	}
+
+	chunk, err := ioutil.ReadFile(targetFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,8 +123,14 @@ func goDecode() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	} else {
+		decoded = chunk
 	}
 
 	inputBuff := bytes.NewBuffer(decoded)
-	compress.Detar(inputBuff, *outdir)
+	err = compress.Detar(inputBuff, outFolder)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("decoded to <%v>", outFolder)
 }

@@ -1,4 +1,4 @@
-package main
+package locates
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	log "../logs"
 )
 
 func walkdir(dirnow string, outname chan<- string, wg *sync.WaitGroup, resGroup chan struct{}) {
@@ -100,4 +102,8 @@ A100:
 	return fs, func(name string) string {
 		return filepath.ToSlash(path.Join(lead, strings.TrimPrefix(name, startd)))
 	}
+}
+
+func Collectfiles(startd string) ([]string, func(string) string) {
+	return collectfiles(startd)
 }
